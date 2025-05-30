@@ -26,11 +26,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 @RestController
 @RequestMapping("/api/v1/usuario")
 public class UsuarioController {
-
-
     @Autowired
     private UsuarioService usuarioService;
-
     @GetMapping
     public ResponseEntity<List<Usuario>> Listar() {
         List<Usuario> usuarios = usuarioService.findAll();
@@ -39,7 +36,7 @@ public class UsuarioController {
         }
         return ResponseEntity.ok(usuarios);
     }
-    
+
     @PostMapping
     public ResponseEntity<Usuario> guardar(@RequestBody Usuario usuario) {
         Usuario usuarionuevo = usuarioService.save(usuario);
@@ -57,7 +54,6 @@ public class UsuarioController {
             return  ResponseEntity.notFound().build();
         }
     }
-
     @PutMapping("/{id}")
     public ResponseEntity<Usuario> actualizar(@PathVariable Long id, @RequestBody Usuario usuario) {
         try {
@@ -76,9 +72,6 @@ public class UsuarioController {
             return  ResponseEntity.notFound().build();
         }
     }
-
-
-
     @DeleteMapping("/{id}")
     public ResponseEntity<?> eliminar(@PathVariable Long id) {
         try {
