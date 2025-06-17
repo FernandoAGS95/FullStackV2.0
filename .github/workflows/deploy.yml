@@ -2,7 +2,7 @@ name: Deploy Java App
 
 on:
   push:
-    branches: [ ramaFena ]  # o master según tu rama
+    branches: [ ramaFena ]
 
 jobs:
   deploy:
@@ -10,30 +10,30 @@ jobs:
 
     steps:
       - name: Clonar repositorio
+        uses: actions/checkout@v3
+
+      - name: Subir proyecto y ejecutar en el servidor
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.HOST_USUARIOS }}
           username: ${{ secrets.USER_USUARIOS }}
           key: ${{ secrets.SSH_KEY_USUARIO }}
           script: |
-            ls -al
-
-      - name: Configurar acceso SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_KEY_USUARIO }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.HOST_USUARIOS }} >> ~/.ssh/known_hosts
-
-      - name: Subir archivos al servidor
+            rm -rf ~/proyecto-java
+            mkdir -p ~/proyecto-java
+            exit
+      - name: Enviar archivos al servidor
         run: |
           rsync -avz --delete ./ ${{ secrets.USER_USUARIOS }}@${{ secrets.HOST_USUARIOS }}:/home/${{ secrets.USER_USUARIOS }}/proyecto-java
 
-      - name: Ejecutar build y levantar jar
-        run: |
-          ssh ${{ secrets.USER_USUARIOS }}@${{ secrets.HOST_USUARIOS }} << 'EOF'
-            cd $HOME/proyecto-java
+      - name: Compilar y levantar la app
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HOST_USUARIOS }}
+          username: ${{ secrets.USER_USUARIOS }}
+          key: ${{ secrets.SSH_KEY_USUARIO }}
+          script: |
+            cd ~/proyecto-java
             mvn clean package
             pkill -f '.jar' || true
             nohup java -jar target/*.jar > salida.log 2>&1 &
-          EOF
