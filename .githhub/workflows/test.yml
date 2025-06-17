@@ -1,0 +1,11 @@
+name: Test Workflow
+
+on:
+  push:
+    branches: [ ramaFena ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Hola! El workflow funciona."
