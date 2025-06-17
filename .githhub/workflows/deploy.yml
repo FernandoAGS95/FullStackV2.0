@@ -1,0 +1,33 @@
+name: Deploy Java App
+
+on:
+  push:
+    branches: [ ramaFena ]  # o master según tu rama
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v3
+
+      - name: Configurar acceso SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY_USUARIO }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.HOST_USUARIOS }} >> ~/.ssh/known_hosts
+
+      - name: Subir archivos al servidor
+        run: |
+          rsync -avz --delete ./ ${{ secrets.USER_USUARIOS }}@${{ secrets.HOST_USUARIOS }}:/home/${{ secrets.USER_USUARIOS }}/proyecto-java
+
+      - name: Ejecutar build y levantar jar
+        run: |
+          ssh ${{ secrets.USER_USUARIOS }}@${{ secrets.HOST_USUARIOS }} << 'EOF'
+            cd ~/proyecto-java
+            mvn clean package
+            pkill -f '.jar' || true
+            nohup java -jar target/*.jar > salida.log 2>&1 &
+          EOF
