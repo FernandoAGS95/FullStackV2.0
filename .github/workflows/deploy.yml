@@ -10,14 +10,20 @@ jobs:
 
     steps:
       - name: Clonar repositorio
-        uses: actions/checkout@v3
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HOST_USUARIOS }}
+          username: ${{ secrets.USER_USUARIOS }}
+          key: ${{ secrets.SSH_KEY_USUARIO }}
+          script: |
+            ls -al
 
       - name: Configurar acceso SSH
         run: |
-          mkdir -p $HOME/.ssh
-          echo "${{ secrets.SSH_KEY_USUARIO }}" > $HOME/.ssh/id_rsa
-          chmod 600 $HOME/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.HOST_USUARIOS }} >> $HOME/.ssh/known_hosts
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY_USUARIO }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.HOST_USUARIOS }} >> ~/.ssh/known_hosts
 
       - name: Subir archivos al servidor
         run: |
