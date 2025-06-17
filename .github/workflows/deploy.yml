@@ -24,7 +24,7 @@ jobs:
           username: ${{ secrets.USER_USUARIOS }}
           key: ${{ secrets.SSH_KEY_USUARIO }}
           port: 22
-          timeout: 30s
+          timeout: 60s
           script: |
             echo "Preparando directorio del proyecto..."
             rm -rf ~/proyecto-java
@@ -41,7 +41,7 @@ jobs:
           target: "/home/${{ secrets.USER_USUARIOS }}/proyecto-java/"
           rm: true
           
-      - name: Compilar y desplegar aplicación
+      - name: Compilar aplicación
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.HOST_USUARIOS }}
@@ -56,23 +56,40 @@ jobs:
             mvn -version
             
             echo "Compilando proyecto..."
-            mvn clean package -DskipTests
+            mvn clean package -DskipTests -q
+            
+            echo "Verificando JAR generado..."
+            ls -la target/usuarios-0.0.1-SNAPSHOT.jar
+            
+      - name: Desplegar aplicación
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOST_USUARIOS }}
+          username: ${{ secrets.USER_USUARIOS }}
+          key: ${{ secrets.SSH_KEY_USUARIO }}
+          port: 22
+          timeout: 120s
+          script: |
+            cd ~/proyecto-java
             
             echo "Deteniendo aplicación anterior..."
-            pkill -f 'java.*\.jar' || echo "No hay procesos Java ejecutándose"
+            pkill -f 'usuarios.*\.jar' || echo "No hay procesos de usuarios ejecutándose"
+            sleep 3
             
             echo "Iniciando nueva aplicación..."
-            nohup java -jar target/*.jar > ~/proyecto-java/app.log 2>&1 &
+            nohup java -jar target/usuarios-0.0.1-SNAPSHOT.jar > app.log 2>&1 &
+            echo "Aplicación iniciada en segundo plano"
             
-            echo "Esperando que la aplicación inicie..."
-            sleep 10
+            echo "Esperando 15 segundos para que arranque..."
+            sleep 15
             
-            echo "Verificando que la aplicación esté corriendo..."
-            if pgrep -f 'java.*\.jar' > /dev/null; then
+            echo "Verificando proceso..."
+            if pgrep -f 'usuarios.*\.jar' > /dev/null; then
                 echo "✅ Aplicación desplegada exitosamente"
+                echo "PID del proceso:" $(pgrep -f 'usuarios.*\.jar')
             else
                 echo "❌ Error: La aplicación no está corriendo"
-                echo "Últimas líneas del log:"
-                tail -20 ~/proyecto-java/app.log
+                echo "Log de errores:"
+                tail -10 app.log
                 exit 1
             fi
