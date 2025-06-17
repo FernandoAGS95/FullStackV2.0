@@ -14,10 +14,10 @@ jobs:
 
       - name: Configurar acceso SSH
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_KEY_USUARIO }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.HOST_USUARIOS }} >> ~/.ssh/known_hosts
+          mkdir -p $HOME/.ssh
+          echo "${{ secrets.SSH_KEY_USUARIO }}" > $HOME/.ssh/id_rsa
+          chmod 600 $HOME/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.HOST_USUARIOS }} >> $HOME/.ssh/known_hosts
 
       - name: Subir archivos al servidor
         run: |
@@ -26,7 +26,7 @@ jobs:
       - name: Ejecutar build y levantar jar
         run: |
           ssh ${{ secrets.USER_USUARIOS }}@${{ secrets.HOST_USUARIOS }} << 'EOF'
-            cd ~/proyecto-java
+            cd $HOME/proyecto-java
             mvn clean package
             pkill -f '.jar' || true
             nohup java -jar target/*.jar > salida.log 2>&1 &
