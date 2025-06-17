@@ -18,4 +18,18 @@ public class TipoUsuario {
 
     @Column(nullable = false)
     private String tipoUsuarioDescripcion;
+
+    public String getTipoUsuarioDescripcion() {
+        return tipoUsuarioDescripcion;
+    }
+    
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public void setTipoUsuarioDescripcion(String tipoUsuarioDescripcion) {
+        this.tipoUsuarioDescripcion = tipoUsuarioDescripcion;
+    }
+    
 }
