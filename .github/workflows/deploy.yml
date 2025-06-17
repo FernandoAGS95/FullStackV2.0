@@ -74,15 +74,15 @@ jobs:
             
             echo "Deteniendo aplicación anterior..."
             pkill -f 'usuarios.*\.jar' || echo "No hay procesos de usuarios ejecutándose"
-            sleep 100
+            sleep 3
             
             echo "Iniciando nueva aplicación..."
             tmux new-session -d -s usuarios_app "java -jar target/usuarios-0.0.1-SNAPSHOT.jar > app.log 2>&1"
-            sleep 100
+            sleep 5
             echo "Aplicación iniciada en segundo plano"
             
             echo "Esperando 15 segundos para que arranque..."
-            sleep 150
+            sleep 15
             
             echo "Verificando proceso..."
             if pgrep -f 'usuarios.*\.jar' > /dev/null; then
