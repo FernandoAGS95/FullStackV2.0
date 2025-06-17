@@ -64,32 +64,40 @@ jobs:
       - name: Desplegar aplicación
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.HOST_USUARIOS }}
-          username: ${{ secrets.USER_USUARIOS }}
-          key: ${{ secrets.SSH_KEY_USUARIO }}
-          port: 22
-          timeout: 120s
           script: |
             cd ~/proyecto-java
             
- 
-            # Stop existing tmux session if exists
-            tmux kill-session -t usuarios_app 2>/dev/null || true
+            # Create systemd service
+            sudo bash -c 'cat > /etc/systemd/system/usuarios.service <<EOF
+            [Unit]
+            Description=Usuarios Application
+            After=network.target
+            StartLimitIntervalSec=0
             
-            # Stop any running Java process
-            pkill -f 'usuarios.*\.jar' || echo "No previous process"
-            sleep 3
+            [Service]
+            Type=simple
+            Restart=always
+            RestartSec=1
+            User=$USER
+            WorkingDirectory=$HOME/proyecto-java
+            ExecStart=/usr/bin/java -jar $HOME/proyecto-java/target/usuarios-0.0.1-SNAPSHOT.jar
+            SuccessExitStatus=143
+            Environment="JAVA_OPTS=-Xms256m -Xmx512m"
             
-            # Start new persistent session
-            tmux new-session -d -s usuarios_app "java -jar target/usuarios-0.0.1-SNAPSHOT.jar > app.log 2>&1"
+            [Install]
+            WantedBy=multi-user.target
+            EOF'
+            
+            # Reload and start
+            sudo systemctl daemon-reload
+            sudo systemctl enable usuarios.service
+            sudo systemctl restart usuarios.service
             
             # Verify
-            sleep 15
-            if tmux has-session -t usuarios_app 2>/dev/null; then
-                echo "✅ Aplicación corriendo en tmux (sesión: usuarios_app)"
-                echo "Ver con: tmux attach -t usuarios_app"
-            else
-                echo "❌ Error al iniciar"
-                tail -20 app.log
+            sleep 10
+            sudo systemctl status usuarios.service --no-pager
+            curl -s http://localhost:8088/actuator/health || {
+                echo "❌ Health check failed"
+                journalctl -u usuarios.service -n 30 --no-pager
                 exit 1
-            fi
+            }
