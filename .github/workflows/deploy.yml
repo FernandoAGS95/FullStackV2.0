@@ -7,33 +7,72 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
+    
     steps:
       - name: Clonar repositorio
-        uses: actions/checkout@v3
-
-      - name: Subir proyecto y ejecutar en el servidor
-        uses: appleboy/ssh-action@v1
+        uses: actions/checkout@v4
+        
+      - name: Verificar conectividad SSH
+        run: |
+          echo "Verificando conectividad con el servidor..."
+          timeout 10 nc -zv ${{ secrets.HOST_USUARIOS }} 22 || echo "No se puede conectar al servidor"
+        
+      - name: Preparar directorio en el servidor
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.HOST_USUARIOS }}
           username: ${{ secrets.USER_USUARIOS }}
           key: ${{ secrets.SSH_KEY_USUARIO }}
+          port: 22
+          timeout: 30s
           script: |
+            echo "Preparando directorio del proyecto..."
             rm -rf ~/proyecto-java
             mkdir -p ~/proyecto-java
-            exit
-      - name: Enviar archivos al servidor
-        run: |
-          rsync -avz --delete ./ ${{ secrets.USER_USUARIOS }}@${{ secrets.HOST_USUARIOS }}:/home/${{ secrets.USER_USUARIOS }}/proyecto-java
-
-      - name: Compilar y levantar la app
-        uses: appleboy/ssh-action@v1
+            
+      - name: Subir archivos al servidor
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.HOST_USUARIOS }}
           username: ${{ secrets.USER_USUARIOS }}
           key: ${{ secrets.SSH_KEY_USUARIO }}
+          port: 22
+          source: "./*"
+          target: "/home/${{ secrets.USER_USUARIOS }}/proyecto-java/"
+          rm: true
+          
+      - name: Compilar y desplegar aplicación
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOST_USUARIOS }}
+          username: ${{ secrets.USER_USUARIOS }}
+          key: ${{ secrets.SSH_KEY_USUARIO }}
+          port: 22
+          timeout: 300s
           script: |
             cd ~/proyecto-java
-            mvn clean package
-            pkill -f '.jar' || true
-            nohup java -jar target/*.jar > salida.log 2>&1 &
+            echo "Verificando Java y Maven..."
+            java -version
+            mvn -version
+            
+            echo "Compilando proyecto..."
+            mvn clean package -DskipTests
+            
+            echo "Deteniendo aplicación anterior..."
+            pkill -f 'java.*\.jar' || echo "No hay procesos Java ejecutándose"
+            
+            echo "Iniciando nueva aplicación..."
+            nohup java -jar target/*.jar > ~/proyecto-java/app.log 2>&1 &
+            
+            echo "Esperando que la aplicación inicie..."
+            sleep 10
+            
+            echo "Verificando que la aplicación esté corriendo..."
+            if pgrep -f 'java.*\.jar' > /dev/null; then
+                echo "✅ Aplicación desplegada exitosamente"
+            else
+                echo "❌ Error: La aplicación no está corriendo"
+                echo "Últimas líneas del log:"
+                tail -20 ~/proyecto-java/app.log
+                exit 1
+            fi
