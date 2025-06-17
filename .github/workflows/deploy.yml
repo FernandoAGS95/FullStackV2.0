@@ -83,8 +83,8 @@ jobs:
             Restart=always
             RestartSec=1
             User=$USER
-            WorkingDirectory=$HOME/proyecto-java
-            ExecStart=/usr/bin/java -jar $HOME/proyecto-java/target/usuarios-0.0.1-SNAPSHOT.jar
+            WorkingDirectory=/home/ubuntu/proyecto-java
+            ExecStart=/usr/bin/java -jar /home/ubuntu/proyecto-java/target/usuarios-0.0.1-SNAPSHOT.jar
             SuccessExitStatus=143
             Environment="JAVA_OPTS=-Xms256m -Xmx512m"
             
