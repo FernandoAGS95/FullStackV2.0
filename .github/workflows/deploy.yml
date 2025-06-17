@@ -78,6 +78,7 @@ jobs:
             
             echo "Iniciando nueva aplicación..."
             nohup java -jar target/usuarios-0.0.1-SNAPSHOT.jar > app.log 2>&1 &
+            sleep 30
             echo "Aplicación iniciada en segundo plano"
             
             echo "Esperando 15 segundos para que arranque..."
