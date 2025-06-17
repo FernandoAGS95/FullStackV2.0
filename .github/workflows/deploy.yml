@@ -64,6 +64,10 @@ jobs:
       - name: Desplegar aplicación
         uses: appleboy/ssh-action@v1.0.3
         with:
+          host: ${{ secrets.HOST_USUARIOS }}
+          username: ${{ secrets.USER_USUARIOS }}
+          key: ${{ secrets.SSH_KEY_USUARIO }}
+          port: 22
           script: |
             cd ~/proyecto-java
             
