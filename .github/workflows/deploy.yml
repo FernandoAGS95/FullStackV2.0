@@ -74,7 +74,7 @@ jobs:
             
             echo "Deteniendo aplicación anterior..."
             pkill -f 'usuarios.*\.jar' || echo "No hay procesos de usuarios ejecutándose"
-            sleep 3
+            sleep 100
             
             echo "Iniciando nueva aplicación..."
             tmux new-session -d -s usuarios_app "java -jar target/usuarios-0.0.1-SNAPSHOT.jar > app.log 2>&1"
