@@ -74,10 +74,11 @@ jobs:
             
             echo "Deteniendo aplicación anterior..."
             pkill -f 'usuarios.*\.jar' || echo "No hay procesos de usuarios ejecutándose"
-            sleep 30
+            sleep 3
             
             echo "Iniciando nueva aplicación..."
             nohup java -jar target/usuarios-0.0.1-SNAPSHOT.jar > app.log 2>&1 &
+            disown
             sleep 30
             echo "Aplicación iniciada en segundo plano"
             
