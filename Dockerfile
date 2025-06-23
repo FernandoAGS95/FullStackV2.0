@@ -4,7 +4,7 @@ FROM maven:3.9.6-eclipse-temurin-17-alpine AS build
 # Directorio de trabajo
 WORKDIR /app
 
-# Copiar archivos de configuración Maven
+# Copiar archivos necesarios
 COPY pom.xml .
 COPY src ./src
 
@@ -14,21 +14,21 @@ RUN mvn clean package -DskipTests
 # Imagen final más liviana
 FROM eclipse-temurin:17-jre-alpine
 
-# Instalar shadow-utils para poder crear usuarios
+# Instalar utilidades necesarias
 RUN apk add --no-cache shadow \
- && groupadd -r appuser && useradd -r -g appuser appuser
-
-# Crear usuario no-root por seguridad
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+ && getent group appuser || groupadd -r appuser \
+ && id -u appuser &>/dev/null || useradd -r -g appuser appuser
 
 # Directorio de trabajo
 WORKDIR /app
 
-# Copiar JAR desde build stage
+# Copiar JAR desde la etapa de build
 COPY --from=build /app/target/usuarios-*.jar app.jar
 
-# Cambiar propietario
+# Asignar permisos al usuario no-root
 RUN chown -R appuser:appuser /app
+
+# Cambiar a usuario no-root
 USER appuser
 
 # Puerto que expone la aplicación
@@ -43,3 +43,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 
 # Comando para ejecutar la aplicación
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
+
