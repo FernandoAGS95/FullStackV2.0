@@ -23,7 +23,7 @@ RUN apk add --no-cache shadow \
 WORKDIR /app
 
 # Copiar JAR desde la etapa de build
-COPY --from=build /app/target/usuarios-*.jar app.jar
+COPY --from=build /app/target/Evaluacion-*.jar app.jar
 
 # Asignar permisos al usuario no-root
 RUN chown -R appuser:appuser /app
