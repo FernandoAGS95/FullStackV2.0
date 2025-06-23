@@ -37,8 +37,8 @@ jobs:
             fi
             
             # Crear directorio del proyecto
-            mkdir -p ~/usuarios-app
-            cd ~/usuarios-app
+            mkdir -p ~/Evaluacion-app
+            cd ~/Evaluacion-app
 
       - name: Copy files to server
         uses: appleboy/scp-action@v0.1.7
@@ -48,7 +48,7 @@ jobs:
           key: ${{ secrets.SSH_KEY_EVALUACION }}
           port: 22
           source: "./*"
-          target: "/home/${{ secrets.USER_EVALUACION }}/usuarios-app/"
+          target: "/home/${{ secrets.USER_EVALUACION }}/Evaluacion-app/"
           rm: true
 
       - name: Deploy with Docker
@@ -59,7 +59,7 @@ jobs:
           key: ${{ secrets.SSH_KEY_EVALUACION }}
           port: 22
           script: |
-            cd ~/usuarios-app
+            cd ~/Evaluacion-app
             
             # Detener contenedores existentes
             docker-compose down || true
@@ -84,7 +84,7 @@ jobs:
             fi
             
             # Test final
-            curl -f http://localhost:8088/actuator/health || {
+            curl -f http://localhost:8080/actuator/health || {
               echo "❌ Health check failed"
               docker-compose logs usuarios-app
               exit 1
