@@ -1,0 +1,93 @@
+name: Deploy Java App with Docker
+
+on:
+  push:
+    branches: [ ramaEsteban ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOST_EVALUACION }}
+          username: ${{ secrets.USER_USUARIOS }}
+          key: ${{ secrets.SSH_KEY_EVALUACION }}
+          port: 22
+          script: |
+            # Verificar si Docker está instalado
+            if ! command -v docker &> /dev/null; then
+              echo "Instalando Docker..."
+              curl -fsSL https://get.docker.com -o get-docker.sh
+              sudo sh get-docker.sh
+              sudo usermod -aG docker $USER
+              rm get-docker.sh
+            fi
+            
+            # Verificar si Docker Compose está instalado
+            if ! command -v docker-compose &> /dev/null; then
+              echo "Instalando Docker Compose..."
+              sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+              sudo chmod +x /usr/local/bin/docker-compose
+            fi
+            
+            # Crear directorio del proyecto
+            mkdir -p ~/usuarios-app
+            cd ~/usuarios-app
+
+      - name: Copy files to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.HOST_EVALUACION }}
+          username: ${{ secrets.USER_EVALUACION }}
+          key: ${{ secrets.SSH_KEY_EVALUACION }}
+          port: 22
+          source: "./*"
+          target: "/home/${{ secrets.USER_EVALUACION }}/usuarios-app/"
+          rm: true
+
+      - name: Deploy with Docker
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOST_EVALUACION }}
+          username: ${{ secrets.USER_EVALUACION }}
+          key: ${{ secrets.SSH_KEY_EVALUACION }}
+          port: 22
+          script: |
+            cd ~/usuarios-app
+            
+            # Detener contenedores existentes
+            docker-compose down || true
+            
+            # Limpiar imágenes anteriores
+            docker system prune -f
+            
+            # Construir y levantar aplicación
+            docker-compose up -d --build
+            
+            # Esperar que la aplicación esté lista
+            echo "Esperando que la aplicación inicie..."
+            sleep 30
+            
+            # Verificar health check
+            if docker-compose ps | grep -q "Up (healthy)"; then
+              echo "✅ Aplicación desplegada correctamente"
+            else
+              echo "❌ Error en el despliegue"
+              docker-compose logs usuarios-app
+              exit 1
+            fi
+            
+            # Test final
+            curl -f http://localhost:8088/actuator/health || {
+              echo "❌ Health check failed"
+              docker-compose logs usuarios-app
+              exit 1
+            }
+            
+            echo "🚀 Despliegue completado exitosamente"

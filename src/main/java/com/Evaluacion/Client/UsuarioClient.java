@@ -15,7 +15,7 @@ public class UsuarioClient {
 
     public UsuarioClient(WebClient.Builder webClientBuilder) {
         this.webClient = webClientBuilder
-            .baseUrl("http://localhost:8080/api/v1/usuario")
+            .baseUrl("http://54.163.238.240:8089/api/v1/usuario")
             .build();
     }
 
