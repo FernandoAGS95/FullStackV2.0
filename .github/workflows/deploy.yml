@@ -1,4 +1,4 @@
-name: Deploy Java App
+name: Deploy Java App with Docker
 
 on:
   push:
@@ -9,28 +9,38 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Clonar repositorio
+      - name: Checkout repository
         uses: actions/checkout@v4
-        
-      - name: Verificar conectividad SSH
-        run: |
-          echo "Verificando conectividad con el servidor..."
-          timeout 10 nc -zv ${{ secrets.HOST_USUARIOS }} 22 || echo "No se puede conectar al servidor"
-        
-      - name: Preparar directorio en el servidor
+
+      - name: Setup SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.HOST_USUARIOS }}
           username: ${{ secrets.USER_USUARIOS }}
           key: ${{ secrets.SSH_KEY_USUARIO }}
           port: 22
-          timeout: 60s
           script: |
-            echo "Preparando directorio del proyecto..."
-            rm -rf ~/proyecto-java
-            mkdir -p ~/proyecto-java
+            # Verificar si Docker está instalado
+            if ! command -v docker &> /dev/null; then
+              echo "Instalando Docker..."
+              curl -fsSL https://get.docker.com -o get-docker.sh
+              sudo sh get-docker.sh
+              sudo usermod -aG docker $USER
+              rm get-docker.sh
+            fi
             
-      - name: Subir archivos al servidor
+            # Verificar si Docker Compose está instalado
+            if ! command -v docker-compose &> /dev/null; then
+              echo "Instalando Docker Compose..."
+              sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+              sudo chmod +x /usr/local/bin/docker-compose
+            fi
+            
+            # Crear directorio del proyecto
+            mkdir -p ~/usuarios-app
+            cd ~/usuarios-app
+
+      - name: Copy files to server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.HOST_USUARIOS }}
@@ -38,30 +48,10 @@ jobs:
           key: ${{ secrets.SSH_KEY_USUARIO }}
           port: 22
           source: "./*"
-          target: "/home/${{ secrets.USER_USUARIOS }}/proyecto-java/"
+          target: "/home/${{ secrets.USER_USUARIOS }}/usuarios-app/"
           rm: true
-          
-      - name: Compilar aplicación
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.HOST_USUARIOS }}
-          username: ${{ secrets.USER_USUARIOS }}
-          key: ${{ secrets.SSH_KEY_USUARIO }}
-          port: 22
-          timeout: 300s
-          script: |
-            cd ~/proyecto-java
-            echo "Verificando Java y Maven..."
-            java -version
-            mvn -version
-            
-            echo "Compilando proyecto..."
-            mvn clean package -DskipTests -q
-            
-            echo "Verificando JAR generado..."
-            ls -la target/usuarios-0.0.1-SNAPSHOT.jar
-            
-      - name: Desplegar aplicación
+
+      - name: Deploy with Docker
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.HOST_USUARIOS }}
@@ -69,39 +59,35 @@ jobs:
           key: ${{ secrets.SSH_KEY_USUARIO }}
           port: 22
           script: |
-            cd ~/proyecto-java
+            cd ~/usuarios-app
             
-            # Create systemd service
-            sudo bash -c 'cat > /etc/systemd/system/usuarios.service <<EOF
-            [Unit]
-            Description=Usuarios Application
-            After=network.target
-            StartLimitIntervalSec=0
+            # Detener contenedores existentes
+            docker-compose down || true
             
-            [Service]
-            Type=simple
-            Restart=always
-            RestartSec=1
-            User=$USER
-            WorkingDirectory=/home/ubuntu/proyecto-java
-            ExecStart=/usr/bin/java -jar /home/ubuntu/proyecto-java/target/usuarios-0.0.1-SNAPSHOT.jar
-            SuccessExitStatus=143
-            Environment="JAVA_OPTS=-Xms256m -Xmx512m"
+            # Limpiar imágenes anteriores
+            docker system prune -f
             
-            [Install]
-            WantedBy=multi-user.target
-            EOF'
+            # Construir y levantar aplicación
+            docker-compose up -d --build
             
-            # Reload and start
-            sudo systemctl daemon-reload
-            sudo systemctl enable usuarios.service
-            sudo systemctl restart usuarios.service
+            # Esperar que la aplicación esté lista
+            echo "Esperando que la aplicación inicie..."
+            sleep 30
             
-            # Verify
-            sleep 10
-            sudo systemctl status usuarios.service --no-pager
-            curl -s http://localhost:8088/actuator/health || {
-                echo "❌ Health check failed"
-                journalctl -u usuarios.service -n 30 --no-pager
-                exit 1
+            # Verificar health check
+            if docker-compose ps | grep -q "Up (healthy)"; then
+              echo "✅ Aplicación desplegada correctamente"
+            else
+              echo "❌ Error en el despliegue"
+              docker-compose logs usuarios-app
+              exit 1
+            fi
+            
+            # Test final
+            curl -f http://localhost:8088/actuator/health || {
+              echo "❌ Health check failed"
+              docker-compose logs usuarios-app
+              exit 1
             }
+            
+            echo "🚀 Despliegue completado exitosamente"

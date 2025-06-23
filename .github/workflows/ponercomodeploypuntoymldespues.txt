@@ -1,0 +1,107 @@
+name: Deploy Java App
+
+on:
+  push:
+    branches: [ ramaFena ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v4
+        
+      - name: Verificar conectividad SSH
+        run: |
+          echo "Verificando conectividad con el servidor..."
+          timeout 10 nc -zv ${{ secrets.HOST_USUARIOS }} 22 || echo "No se puede conectar al servidor"
+        
+      - name: Preparar directorio en el servidor
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOST_USUARIOS }}
+          username: ${{ secrets.USER_USUARIOS }}
+          key: ${{ secrets.SSH_KEY_USUARIO }}
+          port: 22
+          timeout: 60s
+          script: |
+            echo "Preparando directorio del proyecto..."
+            rm -rf ~/proyecto-java
+            mkdir -p ~/proyecto-java
+            
+      - name: Subir archivos al servidor
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.HOST_USUARIOS }}
+          username: ${{ secrets.USER_USUARIOS }}
+          key: ${{ secrets.SSH_KEY_USUARIO }}
+          port: 22
+          source: "./*"
+          target: "/home/${{ secrets.USER_USUARIOS }}/proyecto-java/"
+          rm: true
+          
+      - name: Compilar aplicación
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOST_USUARIOS }}
+          username: ${{ secrets.USER_USUARIOS }}
+          key: ${{ secrets.SSH_KEY_USUARIO }}
+          port: 22
+          timeout: 300s
+          script: |
+            cd ~/proyecto-java
+            echo "Verificando Java y Maven..."
+            java -version
+            mvn -version
+            
+            echo "Compilando proyecto..."
+            mvn clean package -DskipTests -q
+            
+            echo "Verificando JAR generado..."
+            ls -la target/usuarios-0.0.1-SNAPSHOT.jar
+            
+      - name: Desplegar aplicación
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOST_USUARIOS }}
+          username: ${{ secrets.USER_USUARIOS }}
+          key: ${{ secrets.SSH_KEY_USUARIO }}
+          port: 22
+          script: |
+            cd ~/proyecto-java
+            
+            # Create systemd service
+            sudo bash -c 'cat > /etc/systemd/system/usuarios.service <<EOF
+            [Unit]
+            Description=Usuarios Application
+            After=network.target
+            StartLimitIntervalSec=0
+            
+            [Service]
+            Type=simple
+            Restart=always
+            RestartSec=1
+            User=$USER
+            WorkingDirectory=/home/ubuntu/proyecto-java
+            ExecStart=/usr/bin/java -jar /home/ubuntu/proyecto-java/target/usuarios-0.0.1-SNAPSHOT.jar
+            SuccessExitStatus=143
+            Environment="JAVA_OPTS=-Xms256m -Xmx512m"
+            
+            [Install]
+            WantedBy=multi-user.target
+            EOF'
+            
+            # Reload and start
+            sudo systemctl daemon-reload
+            sudo systemctl enable usuarios.service
+            sudo systemctl restart usuarios.service
+            
+            # Verify
+            sleep 10
+            sudo systemctl status usuarios.service --no-pager
+            curl -s http://localhost:8088/actuator/health || {
+                echo "❌ Health check failed"
+                journalctl -u usuarios.service -n 30 --no-pager
+                exit 1
+            }
