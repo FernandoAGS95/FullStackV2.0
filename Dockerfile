@@ -32,7 +32,7 @@ RUN chown -R appuser:appuser /app
 USER appuser
 
 # Puerto que expone la aplicación
-EXPOSE 8088
+EXPOSE 8089
 
 # Variables de entorno para JVM
 ENV JAVA_OPTS="-Xms256m -Xmx512m"
