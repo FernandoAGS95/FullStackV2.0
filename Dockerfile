@@ -12,7 +12,7 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 # Imagen final más liviana
-FROM openjdk:17-jre-slim
+FROM eclipse-temurin:17-jre-alpine
 
 # Crear usuario no-root por seguridad
 RUN groupadd -r appuser && useradd -r -g appuser appuser
@@ -35,7 +35,7 @@ ENV JAVA_OPTS="-Xms256m -Xmx512m"
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:8088/actuator/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8088/actuator/health || exit 1
 
 # Comando para ejecutar la aplicación
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
