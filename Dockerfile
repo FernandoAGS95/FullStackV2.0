@@ -14,6 +14,10 @@ RUN mvn clean package -DskipTests
 # Imagen final más liviana
 FROM eclipse-temurin:17-jre-alpine
 
+# Instalar shadow-utils para poder crear usuarios
+RUN apk add --no-cache shadow \
+ && groupadd -r appuser && useradd -r -g appuser appuser
+
 # Crear usuario no-root por seguridad
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
