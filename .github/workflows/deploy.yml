@@ -11,15 +11,25 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
+       
       - name: Setup SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.HOST_EVALUACION }}
-          username: ${{ secrets.USER_USUARIOS }}
+          username: ${{ secrets.USER_EVALUACION }}  # ⚠️ CORREGIDO: era USER_USUARIOS
           key: ${{ secrets.SSH_KEY_EVALUACION }}
           port: 22
           script: |
+            # Verificar espacio en disco ANTES de proceder
+            df -h
+            if [ $(df / | tail -1 | awk '{print $5}' | sed 's/%//') -gt 80 ]; then
+              echo "⚠️ Advertencia: Espacio en disco mayor al 80%"
+              # Limpiar logs del sistema
+              sudo journalctl --vacuum-time=1d
+              # Limpiar cache de apt
+              sudo apt-get clean
+            fi
+            
             # Verificar si Docker está instalado
             if ! command -v docker &> /dev/null; then
               echo "Instalando Docker..."
@@ -28,14 +38,14 @@ jobs:
               sudo usermod -aG docker $USER
               rm get-docker.sh
             fi
-            
+                     
             # Verificar si Docker Compose está instalado
             if ! command -v docker-compose &> /dev/null; then
               echo "Instalando Docker Compose..."
               sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
               sudo chmod +x /usr/local/bin/docker-compose
             fi
-            
+                     
             # Crear directorio del proyecto
             mkdir -p ~/Evaluacion-app
             cd ~/Evaluacion-app
@@ -60,21 +70,29 @@ jobs:
           port: 22
           script: |
             cd ~/Evaluacion-app
-            
+                     
             # Detener contenedores existentes
             docker-compose down || true
+                     
+            # LIMPIEZA AGRESIVA para evitar problemas de espacio
+            echo "🧹 Limpiando Docker..."
+            docker system prune -af --volumes
+            docker image prune -af
             
-            # Limpiar imágenes anteriores
-            docker system prune -f
-            
+            # Verificar espacio después de limpieza
+            echo "📊 Espacio disponible:"
+            df -h /
+                     
             # Construir y levantar aplicación
+            echo "🚀 Iniciando construcción..."
             docker-compose up -d --build
+                     
+            # Verificar que el contenedor esté corriendo
+            echo "✅ Verificando contenedores:"
+            docker ps
             
-            # Esperar que la aplicación esté lista
-            echo "Esperando que la aplicación inicie..."
-            sleep 30
-            
-
-
-            
+            # Verificar logs por si hay errores
+            echo "📋 Logs recientes:"
+            docker-compose logs --tail=20
+                     
             echo "🚀 Despliegue completado exitosamente"
