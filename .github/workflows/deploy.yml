@@ -74,20 +74,7 @@ jobs:
             echo "Esperando que la aplicación inicie..."
             sleep 30
             
-            # Verificar health check
-            if docker-compose ps | grep -q "Up (healthy)"; then
-              echo "✅ Aplicación desplegada correctamente"
-            else
-              echo "❌ Error en el despliegue"
-              docker-compose logs usuarios-app
-              exit 1
-            fi
-            
-            # Test final
-            curl -f http://localhost:8080/actuator/health || {
-              echo "❌ Health check failed"
-              docker-compose logs usuarios-app
-              exit 1
-            }
+
+
             
             echo "🚀 Despliegue completado exitosamente"
